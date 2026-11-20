@@ -1,0 +1,36 @@
+name: Publish EPIC app
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-save --no-audit --no-fund @noble/curves@1.6.0 @noble/hashes@1.5.0 @noble/ciphers@1.0.0 esbuild@0.28.2
+      - run: |
+          mkdir -p _site
+          cp index.html sw.js manifest.webmanifest *.png _site/
+          npx esbuild entry.js --bundle --format=iife --global-name=NOBLE --minify --target=es2020 --outfile=_site/noble.js
+          sha256sum _site/noble.js
+      - uses: actions/upload-pages-artifact@v3
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.d.outputs.page_url }}
+    steps:
+      - id: d
+        uses: actions/deploy-pages@v4
