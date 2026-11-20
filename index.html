@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>EPIC</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="EPIC">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="theme-color" content="#141414">
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#141414;font:15px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;color:#f4f2ee;overflow:hidden}
+#bar{position:fixed;left:0;right:0;top:0;height:calc(46px + env(safe-area-inset-top));padding:env(safe-area-inset-top) 10px 0 14px;display:flex;align-items:center;gap:8px;background:#141414;z-index:2}
+#bar .b{flex:1;font-weight:800;letter-spacing:.22em;font-size:13px}
+#bar button{background:#2a2a2a;color:#f4f2ee;border:0;border-radius:18px;padding:8px 13px;font:600 13px -apple-system,BlinkMacSystemFont,Arial,sans-serif}
+#bell.on{background:#24452b}
+#bell.need{background:#b8860b;color:#141414}
+#app{position:fixed;left:0;right:0;bottom:0;top:calc(46px + env(safe-area-inset-top));width:100%;height:calc(100% - 46px - env(safe-area-inset-top));border:0;background:#fff}
+#sheet{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center;z-index:5}
+#sheet[hidden]{display:none}
+#card{background:#fff;color:#141414;width:100%;max-width:520px;border-radius:18px 18px 0 0;padding:20px 18px calc(18px + env(safe-area-inset-bottom))}
+#card h2{margin:0 0 6px;font-size:19px}
+#card p{margin:0 0 14px;color:#444}
+#card button{display:block;width:100%;margin-top:8px;padding:13px;border-radius:12px;border:0;font:600 16px -apple-system,BlinkMacSystemFont,Arial,sans-serif;background:#eee;color:#141414}
+#card button.p{background:#141414;color:#fff}
+</style>
+</head>
+<body>
+<div id="bar"><span class="b">EPICBUILDING</span><button id="bell" type="button">🔔 Alerts</button><button id="hq" type="button">HQ</button></div>
+<iframe id="app" title="EPIC Site" allow="camera; microphone; geolocation; clipboard-write; fullscreen"></iframe>
+<div id="sheet" hidden><div id="card"></div></div>
+<script>
+var SITE='https://script.google.com/macros/s/AKfycbzu-OOYITmU-698VmCUO1L5Higb2gJDWT4Zq-kPivi0xx2ASRy2LLjHmXba7vkKH8Iapw/exec';
+var HQ='https://script.google.com/a/macros/epicbuilding.com/s/AKfycby8CQu3ZtGyFxNxF6R1qzG99e3ku-wlWG7wUe4A2_RU7dB8YUXVZEmdILzGEq2-4KKKdQ/exec';
+var $=function(i){return document.getElementById(i);},APP=null,SIGNED=false,KEYWAIT=null,GO=null;
+var standalone=window.matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+var ios=/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+var canPush='serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window;
+function ls(k,v){try{if(v===undefined)return localStorage.getItem(k)||'';localStorage.setItem(k,v);}catch(e){return '';}}
+try{var q=new URLSearchParams(location.search).get('go');if(q)GO=JSON.parse(q);if(q)history.replaceState(null,'',location.pathname);}catch(e){}
+$('app').src=SITE;
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(function(){});
+if(navigator.clearAppBadge)navigator.clearAppBadge().catch(function(){});
+document.addEventListener('visibilitychange',function(){if(!document.hidden&&navigator.clearAppBadge)navigator.clearAppBadge().catch(function(){});});
+function send(m){if(APP)APP.postMessage(Object.assign({epicShell:1},m),'*');}
+function bellState(){var b=$('bell'),on=ls('epicPush')==='on'&&canPush&&Notification.permission==='granted';b.className=on?'on':(standalone&&canPush&&Notification.permission==='default'?'need':'');b.textContent=on?'🔔 On':'🔔 Alerts';}
+function sheet(h){$('card').innerHTML=h;$('sheet').hidden=!h;}
+$('sheet').addEventListener('click',function(e){if(e.target.id==='sheet')sheet('');});
+window.addEventListener('message',function(e){var d=e.data||{},host='';try{host=new URL(e.origin).hostname;}catch(x){}
+ if(!d.epic||!/(^|\.)googleusercontent\.com$/.test(host))return;APP=e.source;
+ if(d.type==='ready'){SIGNED=!!d.signed;bellState();if(GO){send({type:'go',go:GO});GO=null;}if(SIGNED&&ls('epicPush')==='on'&&canPush&&Notification.permission==='granted')resync();}
+ else if(d.type==='key'&&KEYWAIT){KEYWAIT(d.key);KEYWAIT=null;}
+ else if(d.type==='subOk'){ls('epicPush','on');bellState();sheet('<h2>Notifications are on</h2><p>This phone will get EPIC alerts'+(d.role?' ('+d.role.toLowerCase()+')':'')+'. You can send yourself a test to check.</p><button class="p" onclick="test()">Send a test</button><button onclick="sheet(\'\')">Done</button>');}
+ else if(d.type==='testOk'){sheet('<h2>Test sent</h2><p>It should pop up within a minute. Lock your phone to see it on the lock screen.</p><button class="p" onclick="sheet(\'\')">OK</button>');}
+ else if(d.type==='error'){sheet('<h2>Something went wrong</h2><p>'+String(d.message||'').replace(/</g,'&lt;')+'</p><button class="p" onclick="sheet(\'\')">OK</button>');}
+});
+if(navigator.serviceWorker)navigator.serviceWorker.addEventListener('message',function(e){var d=(e.data||{}).data||{};if((e.data||{}).type!=='open')return;if(d.app==='hq')openHQ();else if(d.go)send({type:'go',go:d.go});});
+function b64u(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';var b=atob(s),a=new Uint8Array(b.length);for(var i=0;i<b.length;i++)a[i]=b.charCodeAt(i);return a;}
+function getKey(){return new Promise(function(ok,no){KEYWAIT=ok;send({type:'key'});setTimeout(function(){if(KEYWAIT){KEYWAIT=null;no(Error('The site app did not answer. Check your signal and try again.'));}},20000);});}
+async function subscribe(){var key=await getKey(),reg=await navigator.serviceWorker.ready,sub=await reg.pushManager.getSubscription();
+ if(sub&&sub.options&&sub.options.applicationServerKey){var a=new Uint8Array(sub.options.applicationServerKey),b=b64u(key);if(a.length!==b.length||a.some(function(x,i){return x!==b[i];})){await sub.unsubscribe();sub=null;}}
+ if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64u(key)});
+ send({type:'sub',sub:sub.toJSON(),device:(ios?'iPhone':/Android/.test(navigator.userAgent)?'Android':'Browser')});}
+function resync(){var last=Number(ls('epicPushSync')||0);if(Date.now()-last<86400000)return;ls('epicPushSync',String(Date.now()));subscribe().catch(function(){});}
+async function turnOn(){sheet('');try{
+ if(!canPush){sheet(ios&&!standalone?'<h2>Add EPIC to your home screen first</h2><p>In Safari tap <b>Share</b> → <b>Add to Home Screen</b>. Then open <b>EPIC</b> from your home screen and tap <b>🔔 Alerts</b> again.</p><button class="p" onclick="sheet(\'\')">OK</button>':'<h2>Not available here</h2><p>This browser can\'t show notifications. On iPhone you need iOS 16.4 or newer and EPIC added to your home screen.</p><button class="p" onclick="sheet(\'\')">OK</button>');return;}
+ if(!SIGNED){sheet('<h2>Sign in first</h2><p>Put in your name, email and the crew code in the app below, then tap <b>🔔 Alerts</b> again.</p><button class="p" onclick="sheet(\'\')">OK</button>');return;}
+ var p=await Notification.requestPermission();
+ if(p!=='granted'){sheet('<h2>Notifications are blocked</h2><p>Open your phone\'s <b>Settings → Notifications → EPIC</b> and turn on <b>Allow Notifications</b>, then tap 🔔 again.</p><button class="p" onclick="sheet(\'\')">OK</button>');return;}
+ sheet('<h2>Setting up…</h2><p>One moment.</p>');ls('epicPushSync',String(Date.now()));await subscribe();
+}catch(e){sheet('<h2>Could not turn on notifications</h2><p>'+String(e.message||e).replace(/</g,'&lt;')+'</p><button class="p" onclick="sheet(\'\')">OK</button>');}}
+function test(){sheet('<h2>Sending…</h2>');send({type:'test'});}
+function off(){sheet('');navigator.serviceWorker.ready.then(function(r){return r.pushManager.getSubscription();}).then(function(s){if(s){send({type:'off',endpoint:s.endpoint});return s.unsubscribe();}}).then(function(){ls('epicPush','off');bellState();});}
+$('bell').onclick=function(){if(ls('epicPush')==='on'&&canPush&&Notification.permission==='granted')sheet('<h2>Notifications</h2><p>This phone gets EPIC alerts: site posts, variations, signed quotes, tasks and programme changes for you.</p><button class="p" onclick="test()">Send a test</button><button onclick="turnOn()">Re-connect this phone</button><button onclick="off()">Turn off on this phone</button><button onclick="sheet(\'\')">Close</button>');else turnOn();};
+function openHQ(){window.open(HQ,'_blank');}
+$('hq').onclick=openHQ;
+bellState();
+</script>
+</body>
+</html>
